@@ -1,0 +1,248 @@
+// This is your Prisma schema file for GoldGini Ad Manager
+// Database: MySQL (Hostinger)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// SELLERS
+// ============================================================
+model Seller {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  name         String   @db.VarChar(255)
+  shopName     String   @map("shop_name") @db.VarChar(255)
+  phone        String?  @db.VarChar(20)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  wallet      SellerWallet?
+  campaigns   Campaign[]
+  transactions WalletTransaction[]
+
+  @@map("sellers")
+}
+
+// ============================================================
+// SELLER WALLET
+// ============================================================
+model SellerWallet {
+  id        Int      @id @default(autoincrement())
+  sellerId  Int      @unique @map("seller_id")
+  balance   Decimal  @default(0.00) @db.Decimal(10, 2)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@map("seller_wallets")
+}
+
+// ============================================================
+// WALLET TRANSACTIONS
+// ============================================================
+model WalletTransaction {
+  id          Int                    @id @default(autoincrement())
+  sellerId    Int                    @map("seller_id")
+  type        WalletTransactionType
+  amount      Decimal                @db.Decimal(10, 2)
+  description String?                @db.VarChar(500)
+  referenceId String?                @map("reference_id") @db.VarChar(255)
+  balanceBefore Decimal              @map("balance_before") @db.Decimal(10, 2)
+  balanceAfter  Decimal              @map("balance_after") @db.Decimal(10, 2)
+  createdAt   DateTime               @default(now()) @map("created_at")
+
+  seller Seller @relation(fields: [sellerId], references: [id])
+
+  @@index([sellerId])
+  @@map("wallet_transactions")
+}
+
+enum WalletTransactionType {
+  TOPUP
+  CPC_DEDUCTION
+  REFUND
+}
+
+// ============================================================
+// CAMPAIGNS
+// ============================================================
+model Campaign {
+  id               Int            @id @default(autoincrement())
+  sellerId         Int            @map("seller_id")
+  name             String         @db.VarChar(255)
+  status           CampaignStatus @default(ACTIVE)
+  biddingStrategy  BiddingStrategy @default(FIXED) @map("bidding_strategy")
+  dailyBudget      Decimal        @map("daily_budget") @db.Decimal(10, 2)
+  totalBudget      Decimal?       @map("total_budget") @db.Decimal(10, 2)
+  spentToday       Decimal        @default(0.00) @map("spent_today") @db.Decimal(10, 2)
+  totalSpent       Decimal        @default(0.00) @map("total_spent") @db.Decimal(10, 2)
+  startDate        DateTime       @map("start_date") @db.Date
+  endDate          DateTime?      @map("end_date") @db.Date
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  seller           Seller             @relation(fields: [sellerId], references: [id])
+  keywords         Keyword[]
+  negativeKeywords NegativeKeyword[]
+  ads              Ad[]
+  impressions      Impression[]
+  clicks           Click[]
+  conversions      Conversion[]
+
+  @@index([sellerId])
+  @@index([status])
+  @@map("campaigns")
+}
+
+enum CampaignStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+  BUDGET_EXHAUSTED
+}
+
+enum BiddingStrategy {
+  FIXED
+  DYNAMIC_DOWN
+  DYNAMIC_UP_DOWN
+}
+
+// ============================================================
+// KEYWORDS (targeting)
+// ============================================================
+model Keyword {
+  id         Int           @id @default(autoincrement())
+  campaignId Int           @map("campaign_id")
+  keyword    String        @db.VarChar(255)
+  matchType  KeywordMatch  @default(BROAD) @map("match_type")
+  maxCpcBid  Decimal       @map("max_cpc_bid") @db.Decimal(10, 2)
+  isActive   Boolean       @default(true) @map("is_active")
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  clicks   Click[]
+
+  @@index([campaignId])
+  @@index([keyword])
+  @@map("keywords")
+}
+
+model NegativeKeyword {
+  id         Int           @id @default(autoincrement())
+  campaignId Int           @map("campaign_id")
+  keyword    String        @db.VarChar(255)
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([keyword])
+  @@map("negative_keywords")
+}
+
+enum KeywordMatch {
+  EXACT
+  PHRASE
+  BROAD
+}
+
+// ============================================================
+// ADS (the creative)
+// ============================================================
+model Ad {
+  id          Int      @id @default(autoincrement())
+  campaignId  Int      @map("campaign_id")
+  productId   String   @map("product_id") @db.VarChar(255)
+  headline    String   @db.VarChar(255)
+  description String?  @db.VarChar(500)
+  imageUrl    String?  @map("image_url") @db.VarChar(1000)
+  targetUrl   String   @map("target_url") @db.VarChar(1000)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  campaign    Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  impressions Impression[]
+  clicks      Click[]
+  conversions Conversion[]
+
+  @@index([campaignId])
+  @@map("ads")
+}
+
+// ============================================================
+// IMPRESSIONS (every time an ad is shown)
+// ============================================================
+model Impression {
+  id              Int      @id @default(autoincrement())
+  campaignId      Int      @map("campaign_id")
+  adId            Int      @map("ad_id")
+  keywordMatched  String?  @map("keyword_matched") @db.VarChar(255)
+  placement       String?  @db.VarChar(100)
+  buyerSessionId  String?  @map("buyer_session_id") @db.VarChar(255)
+  auctionRank     Int?     @map("auction_rank")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+  ad       Ad       @relation(fields: [adId], references: [id])
+
+  @@index([campaignId])
+  @@index([createdAt])
+  @@map("impressions")
+}
+
+// ============================================================
+// CLICKS (triggers CPC billing)
+// ============================================================
+model Click {
+  id             Int      @id @default(autoincrement())
+  campaignId     Int      @map("campaign_id")
+  adId           Int      @map("ad_id")
+  keywordId      Int?     @map("keyword_id")
+  keywordMatched String?  @map("keyword_matched") @db.VarChar(255)
+  cpcCharged     Decimal  @map("cpc_charged") @db.Decimal(10, 2)
+  buyerSessionId String?  @map("buyer_session_id") @db.VarChar(255)
+  ipHash         String?  @map("ip_hash") @db.VarChar(64)
+  impressionToken String? @map("impression_token") @db.VarChar(255)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  campaign    Campaign     @relation(fields: [campaignId], references: [id])
+  ad          Ad           @relation(fields: [adId], references: [id])
+  keyword     Keyword?     @relation(fields: [keywordId], references: [id])
+  conversions Conversion[]
+
+  @@index([campaignId])
+  @@index([createdAt])
+  @@index([ipHash])
+  @@map("clicks")
+}
+
+// ============================================================
+// CONVERSIONS (ad-attributed purchases)
+// ============================================================
+model Conversion {
+  id             Int      @id @default(autoincrement())
+  campaignId     Int      @map("campaign_id")
+  adId           Int      @map("ad_id")
+  clickId        Int      @map("click_id")
+  orderId        String   @map("order_id") @db.VarChar(255)
+  orderValue     Decimal  @map("order_value") @db.Decimal(10, 2)
+  buyerSessionId String?  @map("buyer_session_id") @db.VarChar(255)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+  ad       Ad       @relation(fields: [adId], references: [id])
+  click    Click    @relation(fields: [clickId], references: [id])
+
+  @@index([campaignId])
+  @@index([clickId])
+  @@index([orderId])
+  @@map("conversions")
+}

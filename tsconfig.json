@@ -21,7 +21,8 @@
     "baseUrl": ".",
     "typeRoots": ["./node_modules/@types"],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "recharts": ["./node_modules/recharts/types/index.d.ts"]
     }
   },
   "include": [

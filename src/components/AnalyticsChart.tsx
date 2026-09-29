@@ -1,5 +1,6 @@
 'use client';
 
+// @ts-ignore
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar 
 } from 'recharts';

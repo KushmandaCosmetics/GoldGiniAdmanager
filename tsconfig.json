@@ -18,6 +18,8 @@
         "name": "next"
       }
     ],
+    "baseUrl": ".",
+    "typeRoots": ["./node_modules/@types"],
     "paths": {
       "@/*": ["./src/*"]
     }

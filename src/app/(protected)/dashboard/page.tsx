@@ -158,7 +158,7 @@ export default function DashboardPage() {
                   <YAxis stroke="#6b7280" axisLine={false} tickLine={false} fontSize={12} />
                   <Tooltip 
                     contentStyle={{ backgroundColor: '#fff', borderColor: '#e5e7eb', color: '#111827', borderRadius: '4px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                    labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                    labelFormatter={(label: any) => label ? new Date(String(label)).toLocaleDateString() : ''}
                   />
                   <Legend />
                   <Bar dataKey="impressions" fill="#4F23D6" radius={[4, 4, 0, 0]} name="Impressions" />
@@ -197,7 +197,7 @@ export default function DashboardPage() {
                   <YAxis stroke="#6b7280" axisLine={false} tickLine={false} fontSize={12} />
                   <Tooltip 
                     contentStyle={{ backgroundColor: '#fff', borderColor: '#e5e7eb', color: '#111827', borderRadius: '4px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                    labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                    labelFormatter={(label: any) => label ? new Date(String(label)).toLocaleDateString() : ''}
                     formatter={(value: any) => [`₹${Number(value).toFixed(2)}`, 'Spend']}
                   />
                   <defs>

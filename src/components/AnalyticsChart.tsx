@@ -21,18 +21,17 @@ export default function AnalyticsChart({
     return <div className="h-64 flex items-center justify-center text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-200">No data available</div>;
   }
 
-  const ChartComponent = type === 'line' ? LineChart : BarChart;
-  const DataComponent = type === 'line' ? Line : Bar;
+  const ChartComponent: any = type === 'line' ? LineChart : BarChart;
+  const DataComponent: any = type === 'line' ? Line : Bar;
 
   return (
     <div className="h-80 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        {/* @ts-ignore */}
         <ChartComponent data={data} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
           <XAxis 
             dataKey="date" 
-            tickFormatter={(val) => {
+            tickFormatter={(val: any) => {
               const d = new Date(val);
               return `${d.getDate()} ${d.toLocaleString('default', { month: 'short' })}`;
             }}
@@ -44,7 +43,7 @@ export default function AnalyticsChart({
           <YAxis stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} />
           <Tooltip 
             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-            labelFormatter={(label) => new Date(label).toLocaleDateString()}
+            labelFormatter={(label: any) => label ? new Date(String(label)).toLocaleDateString() : ''}
           />
           <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
           

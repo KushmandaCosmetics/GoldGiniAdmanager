@@ -56,7 +56,7 @@ export async function processCpcCharge(campaignId: number, cpcAmount: number) {
       });
 
       // 5. Update Campaign Spend & Check Budget Exhaustion
-      let newStatus = campaign.status;
+      let newStatus: 'ACTIVE' | 'PAUSED' | 'ENDED' | 'BUDGET_EXHAUSTED' = campaign.status;
       if (newSpentToday >= Number(campaign.dailyBudget)) {
         newStatus = 'BUDGET_EXHAUSTED';
       }

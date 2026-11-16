@@ -2,8 +2,33 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, AreaChart, Area } from 'recharts';
-import { MousePointerClick, Eye, TrendingUp, DollarSign, Activity, Megaphone, Target, ShoppingCart } from 'lucide-react';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  Tooltip, 
+  ResponsiveContainer, 
+  CartesianGrid, 
+  Legend, 
+  AreaChart, 
+  Area 
+} from 'recharts';
+import { 
+  MousePointerClick, 
+  Eye, 
+  TrendingUp, 
+  DollarSign, 
+  Activity, 
+  Megaphone, 
+  Target, 
+  Plus,
+  Zap,
+  ArrowUpRight,
+  ShieldCheck,
+  Sparkles
+} from 'lucide-react';
+import QuickTopUpModal from '@/components/QuickTopUpModal';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<any>(null);
@@ -11,6 +36,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('7');
   const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -41,22 +67,33 @@ export default function DashboardPage() {
     }
   }
 
-  if (loading) return <div className="p-8 text-[#4F23D6] font-bold">Loading Dashboard...</div>;
-  if (!stats) return <div className="p-8 text-red-400">Failed to load analytics</div>;
-
-  const avgCpc = stats.clicks > 0 ? (Number(stats.spend) / stats.clicks) : 0;
+  const impressions = Number(stats?.impressions || 0);
+  const clicks = Number(stats?.clicks || 0);
+  const spend = Number(stats?.spend || 0);
+  const avgCpc = clicks > 0 ? (spend / clicks) : 0;
+  const ctr = impressions > 0 ? ((clicks / impressions) * 100).toFixed(2) : '0.00';
   const activeCampaigns = campaigns.filter(c => c.status === 'ACTIVE').length;
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
-      <div className="flex justify-between items-end">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter text-gray-900">Analytics <span className="text-[#4F23D6]">Overview</span></h1>
-          <p className="text-gray-500 mt-2 font-medium">Performance for the last {period} days</p>
+          <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-[#4F23D6] mb-1">
+            <Activity className="w-4 h-4" />
+            <span>Real-Time Ad Performance</span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-gray-900">
+            Analytics <span className="text-[#4F23D6]">Dashboard</span>
+          </h1>
+          <p className="text-gray-500 text-sm mt-1 font-medium">
+            Auction metrics, ad spend, and impressions for the last {period} days.
+          </p>
         </div>
-        <div className="flex items-center space-x-3">
+
+        <div className="flex items-center space-x-3 w-full sm:w-auto justify-end">
           {/* Period selector */}
-          <div className="flex bg-gray-100 border border-gray-200">
+          <div className="flex border-2 border-gray-900 bg-white">
             {[
               { label: '7D', value: '7' },
               { label: '14D', value: '14' },
@@ -66,215 +103,291 @@ export default function DashboardPage() {
               <button
                 key={p.value}
                 onClick={() => setPeriod(p.value)}
-                className={`px-4 py-2 text-sm font-bold uppercase tracking-wide transition-colors ${
+                className={`px-3 py-1.5 text-xs font-black uppercase tracking-wider transition-colors ${
                   period === p.value 
                     ? 'bg-[#4F23D6] text-white' 
-                    : 'text-gray-500 hover:text-gray-900'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >
                 {p.label}
               </button>
             ))}
           </div>
+
           <Link 
             href="/campaigns/new" 
-            className="bg-[#4F23D6] text-white px-6 py-3 font-bold uppercase tracking-wide hover:bg-gray-900 transition-colors shadow-[4px_4px_0px_0px_#E1FF00] hover:shadow-[6px_6px_0px_0px_#E1FF00] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[2px_2px_0px_0px_#E1FF00]"
+            className="bg-[#4F23D6] hover:bg-[#3815a8] text-white px-5 py-2.5 font-black text-xs uppercase tracking-wider flex items-center space-x-1.5 shadow-[3px_3px_0px_0px_#E1FF00] hover:shadow-[5px_5px_0px_0px_#E1FF00] hover:-translate-y-0.5 active:translate-y-0 transition-all shrink-0"
           >
-            + New Campaign
+            <Plus className="w-4 h-4" />
+            <span>Launch Ad</span>
           </Link>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <div className="bg-white border border-gray-200 p-6 shadow-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <DollarSign className="w-16 h-16 text-[#4F23D6]" />
-          </div>
-          <p className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Total Spend</p>
-          <p className="text-3xl font-black text-gray-900 tracking-tighter">₹{Number(stats.spend).toFixed(2)}</p>
+      {loading && !stats ? (
+        <div className="p-16 text-center text-sm font-bold text-[#4F23D6] animate-pulse">
+          Loading analytics metrics...
         </div>
-
-        <div className="bg-white border border-gray-200 p-6 shadow-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Eye className="w-16 h-16 text-[#4F23D6]" />
-          </div>
-          <p className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Impressions</p>
-          <p className="text-3xl font-black text-gray-900 tracking-tighter">{stats.impressions.toLocaleString()}</p>
-        </div>
-
-        <div className="bg-white border border-gray-200 p-6 shadow-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <MousePointerClick className="w-16 h-16 text-[#4F23D6]" />
-          </div>
-          <p className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Clicks</p>
-          <p className="text-3xl font-black text-gray-900 tracking-tighter">{stats.clicks.toLocaleString()}</p>
-        </div>
-
-        <div className="bg-white border border-gray-200 p-6 shadow-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Target className="w-16 h-16 text-[#4F23D6]" />
-          </div>
-          <p className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Avg. CPC</p>
-          <p className="text-3xl font-black text-gray-900 tracking-tighter">₹{avgCpc.toFixed(2)}</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-[#4F23D6] to-[#2c1280] p-6 relative overflow-hidden group shadow-[4px_4px_0px_0px_#E1FF00]">
-          <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-30 transition-opacity">
-            <Activity className="w-16 h-16 text-white" />
-          </div>
-          <p className="text-sm font-bold text-purple-200 uppercase tracking-wider mb-2">Avg. CTR</p>
-          <p className="text-3xl font-black text-[#E1FF00] tracking-tighter">
-            {stats.impressions > 0 
-              ? ((stats.clicks / stats.impressions) * 100).toFixed(2) 
-              : '0.00'}%
-          </p>
-        </div>
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Impressions & Clicks Chart */}
-        <div className="bg-white border border-gray-200 p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide mb-6 flex items-center">
-            <TrendingUp className="w-5 h-5 mr-2 text-[#4F23D6]" /> Traffic Trends
-          </h3>
-          <div className="h-72 w-full">
-            {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="#6b7280" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    fontSize={12}
-                    tickFormatter={(val) => {
-                      const d = new Date(val);
-                      return `${d.getDate()}/${d.getMonth() + 1}`;
-                    }}
-                  />
-                  <YAxis stroke="#6b7280" axisLine={false} tickLine={false} fontSize={12} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#fff', borderColor: '#e5e7eb', color: '#111827', borderRadius: '4px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                    labelFormatter={(label: any) => label ? new Date(String(label)).toLocaleDateString() : ''}
-                  />
-                  <Legend />
-                  <Bar dataKey="impressions" fill="#4F23D6" radius={[4, 4, 0, 0]} name="Impressions" />
-                  <Bar dataKey="clicks" fill="#E1FF00" radius={[4, 4, 0, 0]} name="Clicks" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-gray-400 font-medium">
-                No data for this period
+      ) : (
+        <>
+          {/* 5 High-Impact KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Total Spend */}
+            <div className="bg-white border-2 border-gray-900 p-5 shadow-[4px_4px_0px_0px_#110C24] relative overflow-hidden group">
+              <div className="flex items-center justify-between text-gray-500 mb-2">
+                <span className="text-[10px] font-black uppercase tracking-wider">Total Ad Spend</span>
+                <DollarSign className="w-4 h-4 text-[#4F23D6]" />
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Spend Chart */}
-        <div className="bg-white border border-gray-200 p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide mb-6 flex items-center">
-            <DollarSign className="w-5 h-5 mr-2 text-[#4F23D6]" /> Daily Spend (₹)
-          </h3>
-          <div className="h-72 w-full">
-            {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="#6b7280" 
-                    axisLine={false} 
-                    tickLine={false}
-                    fontSize={12}
-                    tickFormatter={(val) => {
-                      const d = new Date(val);
-                      return `${d.getDate()}/${d.getMonth() + 1}`;
-                    }}
-                  />
-                  <YAxis stroke="#6b7280" axisLine={false} tickLine={false} fontSize={12} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#fff', borderColor: '#e5e7eb', color: '#111827', borderRadius: '4px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                    labelFormatter={(label: any) => label ? new Date(String(label)).toLocaleDateString() : ''}
-                    formatter={(value: any) => [`₹${Number(value).toFixed(2)}`, 'Spend']}
-                  />
-                  <defs>
-                    <linearGradient id="spendGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4F23D6" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#4F23D6" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <Area type="monotone" dataKey="spend" stroke="#4F23D6" fill="url(#spendGradient)" strokeWidth={3} />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-gray-400 font-medium">
-                No data for this period
+              <p className="text-3xl font-black text-gray-900 tracking-tight">₹{spend.toFixed(2)}</p>
+              <div className="mt-2 flex items-center justify-between text-[11px] text-gray-500 font-bold">
+                <span>Active Bids</span>
+                <span className="text-[#4F23D6] font-black">{activeCampaigns} Campaigns</span>
               </div>
-            )}
-          </div>
-        </div>
-      </div>
+            </div>
 
-      {/* Top Campaigns Table */}
-      {campaigns.length > 0 && (
-        <div className="bg-white border border-gray-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide flex items-center">
-              <Megaphone className="w-5 h-5 mr-2 text-[#4F23D6]" /> Campaign Performance
-            </h3>
-            <Link href="/campaigns" className="text-sm text-[#4F23D6] font-bold uppercase hover:underline">
-              View All →
-            </Link>
+            {/* Impressions */}
+            <div className="bg-white border-2 border-gray-900 p-5 shadow-[4px_4px_0px_0px_#110C24] relative overflow-hidden group">
+              <div className="flex items-center justify-between text-gray-500 mb-2">
+                <span className="text-[10px] font-black uppercase tracking-wider">Impressions</span>
+                <Eye className="w-4 h-4 text-[#4F23D6]" />
+              </div>
+              <p className="text-3xl font-black text-gray-900 tracking-tight">{impressions.toLocaleString()}</p>
+              <div className="mt-2 text-[11px] text-gray-500 font-bold">
+                Search & Category placements
+              </div>
+            </div>
+
+            {/* Clicks */}
+            <div className="bg-white border-2 border-gray-900 p-5 shadow-[4px_4px_0px_0px_#110C24] relative overflow-hidden group">
+              <div className="flex items-center justify-between text-gray-500 mb-2">
+                <span className="text-[10px] font-black uppercase tracking-wider">Shopper Clicks</span>
+                <MousePointerClick className="w-4 h-4 text-[#4F23D6]" />
+              </div>
+              <p className="text-3xl font-black text-gray-900 tracking-tight">{clicks.toLocaleString()}</p>
+              <div className="mt-2 text-[11px] text-emerald-600 font-bold">
+                High-intent visits to catalog
+              </div>
+            </div>
+
+            {/* Avg CPC */}
+            <div className="bg-white border-2 border-gray-900 p-5 shadow-[4px_4px_0px_0px_#110C24] relative overflow-hidden group">
+              <div className="flex items-center justify-between text-gray-500 mb-2">
+                <span className="text-[10px] font-black uppercase tracking-wider">Average CPC</span>
+                <Target className="w-4 h-4 text-[#4F23D6]" />
+              </div>
+              <p className="text-3xl font-black text-gray-900 tracking-tight">₹{avgCpc.toFixed(2)}</p>
+              <div className="mt-2 text-[11px] text-gray-500 font-bold">
+                Second-price auction discount
+              </div>
+            </div>
+
+            {/* CTR */}
+            <div className="bg-[#110C24] text-white border-2 border-gray-900 p-5 shadow-[4px_4px_0px_0px_#E1FF00] relative overflow-hidden sm:col-span-2 lg:col-span-1">
+              <div className="flex items-center justify-between text-purple-200 mb-2">
+                <span className="text-[10px] font-black uppercase tracking-wider">Click-Through Rate</span>
+                <Sparkles className="w-4 h-4 text-[#E1FF00]" />
+              </div>
+              <p className="text-3xl font-black text-[#E1FF00] tracking-tight">{ctr}%</p>
+              <div className="mt-2 text-[11px] text-purple-200 font-bold">
+                {Number(ctr) >= 1.5 ? '🔥 Above Industry Avg' : 'Target: > 1.5%'}
+              </div>
+            </div>
           </div>
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500">
-                <th className="pb-3 font-bold">Campaign</th>
-                <th className="pb-3 font-bold">Status</th>
-                <th className="pb-3 font-bold text-right">Budget</th>
-                <th className="pb-3 font-bold text-right">Spent</th>
-                <th className="pb-3 font-bold text-right">Impressions</th>
-                <th className="pb-3 font-bold text-right">Clicks</th>
-                <th className="pb-3 font-bold text-right">CTR</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {campaigns.slice(0, 5).map((camp: any) => {
-                const ctr = camp._count.impressions > 0 
-                  ? ((camp._count.clicks / camp._count.impressions) * 100).toFixed(2)
-                  : '0.00';
-                return (
-                  <tr key={camp.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="py-3">
-                      <Link href={`/campaigns/${camp.id}`} className="font-bold text-gray-900 hover:text-[#4F23D6] transition-colors">
-                        {camp.name}
-                      </Link>
-                    </td>
-                    <td className="py-3">
-                      <span className={`px-2 py-1 text-xs font-bold uppercase tracking-wider ${
-                        camp.status === 'ACTIVE' ? 'bg-green-100 text-green-700' :
-                        camp.status === 'PAUSED' ? 'bg-yellow-100 text-yellow-700' :
-                        camp.status === 'BUDGET_EXHAUSTED' ? 'bg-red-100 text-red-700' :
-                        'bg-gray-100 text-gray-600'
-                      }`}>
-                        {camp.status}
-                      </span>
-                    </td>
-                    <td className="py-3 text-right font-mono text-gray-600">₹{Number(camp.dailyBudget).toFixed(2)}/d</td>
-                    <td className="py-3 text-right font-mono text-gray-600">₹{Number(camp.totalSpent).toFixed(2)}</td>
-                    <td className="py-3 text-right text-gray-600">{camp._count.impressions.toLocaleString()}</td>
-                    <td className="py-3 text-right text-gray-600">{camp._count.clicks.toLocaleString()}</td>
-                    <td className="py-3 text-right font-mono text-[#4F23D6] font-bold">{ctr}%</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+
+          {/* Charts Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Impressions & Clicks Bar Chart */}
+            <div className="bg-white border-2 border-gray-900 p-6 shadow-[6px_6px_0px_0px_#110C24]">
+              <div className="flex items-center justify-between mb-6 pb-3 border-b border-gray-100">
+                <h3 className="text-sm font-black text-gray-900 uppercase tracking-wide flex items-center">
+                  <TrendingUp className="w-4 h-4 mr-2 text-[#4F23D6]" />
+                  Traffic Volume (Impressions vs Clicks)
+                </h3>
+              </div>
+              <div className="h-72 w-full">
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                      <XAxis 
+                        dataKey="date" 
+                        stroke="#9ca3af" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        fontSize={11}
+                        tickFormatter={(val) => {
+                          const d = new Date(val);
+                          return `${d.getDate()}/${d.getMonth() + 1}`;
+                        }}
+                      />
+                      <YAxis stroke="#9ca3af" axisLine={false} tickLine={false} fontSize={11} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#110C24', 
+                          borderColor: '#E1FF00', 
+                          color: '#fff', 
+                          borderWidth: '2px',
+                          fontSize: '11px',
+                          fontWeight: 'bold' 
+                        }}
+                        labelFormatter={(label: any) => new Date(label || 0).toLocaleDateString()}
+                      />
+                      <Legend />
+                      <Bar dataKey="impressions" fill="#4F23D6" name="Impressions" />
+                      <Bar dataKey="clicks" fill="#E1FF00" name="Clicks" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-xs text-gray-400 font-bold">
+                    No traffic recorded for this selected time window.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Daily Spend Area Chart */}
+            <div className="bg-white border-2 border-gray-900 p-6 shadow-[6px_6px_0px_0px_#110C24]">
+              <div className="flex items-center justify-between mb-6 pb-3 border-b border-gray-100">
+                <h3 className="text-sm font-black text-gray-900 uppercase tracking-wide flex items-center">
+                  <DollarSign className="w-4 h-4 mr-2 text-[#4F23D6]" />
+                  Daily Ad Budget Spend (₹)
+                </h3>
+              </div>
+              <div className="h-72 w-full">
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                      <XAxis 
+                        dataKey="date" 
+                        stroke="#9ca3af" 
+                        axisLine={false} 
+                        tickLine={false}
+                        fontSize={11}
+                        tickFormatter={(val) => {
+                          const d = new Date(val);
+                          return `${d.getDate()}/${d.getMonth() + 1}`;
+                        }}
+                      />
+                      <YAxis stroke="#9ca3af" axisLine={false} tickLine={false} fontSize={11} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#110C24', 
+                          borderColor: '#4F23D6', 
+                          color: '#fff', 
+                          borderWidth: '2px',
+                          fontSize: '11px',
+                          fontWeight: 'bold' 
+                        }}
+                        labelFormatter={(label: any) => new Date(label || 0).toLocaleDateString()}
+                        formatter={(value: any) => [`₹${Number(value).toFixed(2)}`, 'Spend']}
+                      />
+                      <defs>
+                        <linearGradient id="spendGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#4F23D6" stopOpacity={0.4}/>
+                          <stop offset="95%" stopColor="#4F23D6" stopOpacity={0.0}/>
+                        </linearGradient>
+                      </defs>
+                      <Area type="monotone" dataKey="spend" stroke="#4F23D6" fill="url(#spendGradient)" strokeWidth={3} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-xs text-gray-400 font-bold">
+                    No spend recorded for this selected time window.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Portfolio Table */}
+          {campaigns.length > 0 && (
+            <div className="bg-white border-2 border-gray-900 shadow-[6px_6px_0px_0px_#110C24] overflow-hidden">
+              <div className="p-5 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+                <div className="flex items-center space-x-2">
+                  <Megaphone className="w-4 h-4 text-[#4F23D6]" />
+                  <h3 className="text-sm font-black text-gray-900 uppercase tracking-wide">
+                    Active Campaign Snapshot
+                  </h3>
+                </div>
+                <Link href="/campaigns" className="text-xs font-black uppercase text-[#4F23D6] hover:underline flex items-center space-x-1">
+                  <span>View All Campaigns</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-[10px] uppercase font-black tracking-wider text-gray-500 bg-gray-50">
+                      <th className="p-4">Campaign Name</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4 text-right">Daily Budget</th>
+                      <th className="p-4 text-right">Impressions</th>
+                      <th className="p-4 text-right">Clicks</th>
+                      <th className="p-4 text-right">CTR</th>
+                      <th className="p-4 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 text-xs font-bold text-gray-800">
+                    {campaigns.slice(0, 5).map((camp: any) => {
+                      const cImpr = Number(camp._count?.impressions || camp.impressions || camp.total_impressions || 0);
+                      const cClicks = Number(camp._count?.clicks || camp.clicks || camp.total_clicks || 0);
+                      const cCtr = cImpr > 0 ? ((cClicks / cImpr) * 100).toFixed(2) : '0.00';
+
+                      return (
+                        <tr key={camp.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="p-4 font-black text-gray-900">
+                            <Link href={`/campaigns/${camp.id}`} className="hover:text-[#4F23D6] transition-colors">
+                              {camp.name}
+                            </Link>
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-2 py-0.5 text-[10px] font-black uppercase border ${
+                              camp.status === 'ACTIVE' 
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-500' 
+                                : 'bg-gray-100 text-gray-600 border-gray-300'
+                            }`}>
+                              {camp.status}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right font-mono">
+                            ₹{Number(camp.daily_budget || camp.dailyBudget || 0).toFixed(2)}/d
+                          </td>
+                          <td className="p-4 text-right font-mono">
+                            {cImpr.toLocaleString()}
+                          </td>
+                          <td className="p-4 text-right font-mono">
+                            {cClicks.toLocaleString()}
+                          </td>
+                          <td className="p-4 text-right font-mono text-[#4F23D6] font-black">
+                            {cCtr}%
+                          </td>
+                          <td className="p-4 text-right">
+                            <Link
+                              href={`/campaigns/${camp.id}`}
+                              className="text-[10px] font-black uppercase text-gray-900 hover:text-[#4F23D6] border border-gray-300 px-2.5 py-1 hover:border-black transition-colors"
+                            >
+                              Manage →
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
       )}
+
+      {/* Top Up Modal triggerable from Dashboard */}
+      <QuickTopUpModal
+        isOpen={isTopUpOpen}
+        onClose={() => setIsTopUpOpen(false)}
+        onSuccess={fetchData}
+      />
     </div>
   );
 }

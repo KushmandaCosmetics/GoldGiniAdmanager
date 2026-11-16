@@ -2,8 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Target, Settings, Image as ImageIcon, CheckCircle2, ShoppingBag, Megaphone, Plus, X } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  Target, 
+  Settings, 
+  Image as ImageIcon, 
+  CheckCircle2, 
+  ShoppingBag, 
+  Megaphone, 
+  Plus, 
+  X,
+  Search,
+  Sparkles,
+  Zap,
+  Info
+} from 'lucide-react';
 import Link from 'next/link';
+import LiveAdPreview from '@/components/LiveAdPreview';
 
 export default function NewCampaignWizard() {
   const router = useRouter();
@@ -13,12 +28,13 @@ export default function NewCampaignWizard() {
   
   const [ecommProducts, setEcommProducts] = useState<any[]>([]);
   const [fetchingProducts, setFetchingProducts] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
 
   const [formData, setFormData] = useState({
-    objective: '',
+    objective: 'SPONSORED_PRODUCTS',
     name: '',
-    dailyBudget: '',
-    startDate: '',
+    dailyBudget: '500',
+    startDate: new Date().toISOString().split('T')[0],
     endDate: '',
     biddingStrategy: 'FIXED',
     
@@ -28,7 +44,7 @@ export default function NewCampaignWizard() {
     // Display specific
     headline: '',
     imageUrl: '',
-    audience: '',
+    audience: 'in_market',
     
     // Sponsored Brands specific
     brandLogoUrl: '',
@@ -36,10 +52,10 @@ export default function NewCampaignWizard() {
     selectedProducts: [] as string[],
     
     // Targeting
-    keywords: '', 
+    keywords: 'gold jewellery, 22k gold, designer earrings', 
     matchType: 'BROAD',
-    negativeKeywords: '',
-    bidAmount: '', 
+    negativeKeywords: 'free, fake, cheap',
+    bidAmount: '4.50', 
   });
 
   useEffect(() => {
@@ -50,9 +66,15 @@ export default function NewCampaignWizard() {
         const data = await res.json();
         if (data.success && data.products) {
           setEcommProducts(data.products);
+          if (data.products.length > 0 && !formData.productId) {
+            setFormData(prev => ({
+              ...prev,
+              productId: (data.products[0].product_id || data.products[0].id)?.toString()
+            }));
+          }
         }
       } catch (err) {
-        console.error("Failed to fetch products from ecomm2", err);
+        console.error("Failed to fetch products", err);
       } finally {
         setFetchingProducts(false);
       }
@@ -64,14 +86,13 @@ export default function NewCampaignWizard() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleProductSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setFormData({ ...formData, productId: e.target.value });
+  const handleProductSelect = (id: string) => {
+    setFormData({ ...formData, productId: id });
   };
 
-  const handleMultiProductSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    if (!val || formData.selectedProducts.includes(val) || formData.selectedProducts.length >= 3) return;
-    setFormData({ ...formData, selectedProducts: [...formData.selectedProducts, val] });
+  const handleMultiProductSelect = (id: string) => {
+    if (!id || formData.selectedProducts.includes(id) || formData.selectedProducts.length >= 3) return;
+    setFormData({ ...formData, selectedProducts: [...formData.selectedProducts, id] });
   };
 
   const removeSelectedProduct = (id: string) => {
@@ -80,6 +101,14 @@ export default function NewCampaignWizard() {
 
   const selectObjective = (obj: string) => {
     setFormData({ ...formData, objective: obj });
+  };
+
+  const addSuggestedKeyword = (kw: string) => {
+    const list = formData.keywords ? formData.keywords.split(',').map(s => s.trim()) : [];
+    if (!list.includes(kw)) {
+      list.push(kw);
+      setFormData({ ...formData, keywords: list.join(', ') });
+    }
   };
 
   const handleNext = (e: React.FormEvent) => {
@@ -93,16 +122,14 @@ export default function NewCampaignWizard() {
     setError('');
 
     try {
-      // Build the correct keywords array for the API
       const keywordsArray = formData.objective === 'DISPLAY' 
         ? [] 
         : formData.keywords.split(',').filter(k => k.trim()).map(k => ({
             keyword: k.trim(),
             matchType: formData.matchType as 'EXACT' | 'PHRASE' | 'BROAD',
-            maxCpcBid: Number(formData.bidAmount)
+            maxCpcBid: Number(formData.bidAmount) || 2
           }));
 
-      // Build the correct ads array based on objective
       let adsArray: any[] = [];
       
       if (formData.objective === 'SPONSORED_PRODUCTS') {
@@ -112,13 +139,13 @@ export default function NewCampaignWizard() {
           headline: product?.product_name || product?.name || product?.title || `Product #${formData.productId}`,
           description: product?.description?.substring(0, 500) || '',
           imageUrl: product?.image || product?.thumbnail || undefined,
-          targetUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://goldgini.com'}/product/${formData.productId}`
+          targetUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://goldgini.com'}/products/${formData.productId}`
         }];
       } else if (formData.objective === 'SPONSORED_BRANDS') {
         adsArray = [{
           productId: formData.selectedProducts[0] || 'brand',
-          headline: formData.headline,
-          description: `Brand showcase featuring ${formData.selectedProducts.length} products`,
+          headline: formData.headline || formData.name,
+          description: `Brand showcase featuring ${formData.selectedProducts.length} items`,
           imageUrl: formData.brandLogoUrl || undefined,
           targetUrl: formData.storeUrl || `${process.env.NEXT_PUBLIC_APP_URL || 'https://goldgini.com'}/store`
         }];
@@ -126,20 +153,19 @@ export default function NewCampaignWizard() {
         const product = ecommProducts.find(p => (p.product_id || p.id)?.toString() === formData.productId);
         adsArray = [{
           productId: formData.productId,
-          headline: formData.headline,
+          headline: formData.headline || formData.name,
           description: `Display ad targeting: ${formData.audience}`,
           imageUrl: formData.imageUrl || undefined,
-          targetUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://goldgini.com'}/product/${formData.productId}`
+          targetUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://goldgini.com'}/products/${formData.productId}`
         }];
       }
 
-      // Build the API payload matching the Zod schema
       const payload = {
-        name: formData.name,
+        name: formData.name || `Campaign - ${new Date().toLocaleDateString()}`,
         dailyBudget: Number(formData.dailyBudget),
         startDate: new Date(formData.startDate).toISOString(),
         endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
-        keywords: keywordsArray.length > 0 ? keywordsArray : [{ keyword: 'general', matchType: 'BROAD' as const, maxCpcBid: Number(formData.bidAmount) || 1 }],
+        keywords: keywordsArray.length > 0 ? keywordsArray : [{ keyword: 'gold jewelry', matchType: 'BROAD' as const, maxCpcBid: Number(formData.bidAmount) || 2 }],
         ads: adsArray,
         objective: formData.objective,
         biddingStrategy: formData.biddingStrategy,
@@ -166,369 +192,578 @@ export default function NewCampaignWizard() {
   };
 
   const objectives = [
-    { id: 'SPONSORED_PRODUCTS', icon: ShoppingBag, title: 'Sponsored Products', desc: 'Promote product listings to shoppers actively searching with related keywords or viewing similar products.' },
-    { id: 'SPONSORED_BRANDS', icon: Megaphone, title: 'Sponsored Brands', desc: 'Drive brand discovery. Showcase your brand and products where shoppers browse and search.' },
-    { id: 'DISPLAY', icon: ImageIcon, title: 'Display Ads', desc: 'Reach, re-engage, and convert customers wherever they spend time using their past behaviors and interests.' },
+    { 
+      id: 'SPONSORED_PRODUCTS', 
+      icon: ShoppingBag, 
+      title: 'Sponsored Products', 
+      badge: 'High Conversion',
+      desc: 'Appear on product search results and product detail pages when customers search for matching keywords.' 
+    },
+    { 
+      id: 'SPONSORED_BRANDS', 
+      icon: Megaphone, 
+      title: 'Sponsored Brands', 
+      badge: 'Brand Discovery',
+      desc: 'Promote your brand headline, custom logo, and up to 3 featured products at the very top of search results.' 
+    },
+    { 
+      id: 'DISPLAY', 
+      icon: ImageIcon, 
+      title: 'Sponsored Display', 
+      badge: 'Visual Retargeting',
+      desc: 'High-impact banner placements across categories and homepage targeting in-market shoppers.' 
+    },
   ];
 
-  // Dynamic Steps logic
+  const suggestedKeywords = [
+    '24k gold coin', 'bridal choker necklace', 'diamond stud earrings', 
+    'solitaire ring', 'gold bangles 22k', 'daily wear pendant'
+  ];
+
   const getSteps = () => {
     if (formData.objective === 'SPONSORED_PRODUCTS') {
       return [
         { num: 1, title: 'Objective', icon: Target },
         { num: 2, title: 'Basics', icon: Settings },
-        { num: 3, title: 'Product', icon: ShoppingBag },
-        { num: 4, title: 'Targeting', icon: Target },
+        { num: 3, title: 'Product Picker', icon: ShoppingBag },
+        { num: 4, title: 'Targeting & Bids', icon: Target },
       ];
     } else if (formData.objective === 'SPONSORED_BRANDS') {
       return [
         { num: 1, title: 'Objective', icon: Target },
         { num: 2, title: 'Basics', icon: Settings },
         { num: 3, title: 'Brand Creative', icon: ImageIcon },
-        { num: 4, title: 'Targeting', icon: Target },
+        { num: 4, title: 'Targeting & Bids', icon: Target },
       ];
-    } else if (formData.objective === 'DISPLAY') {
+    } else {
       return [
         { num: 1, title: 'Objective', icon: Target },
         { num: 2, title: 'Basics', icon: Settings },
-        { num: 3, title: 'Product', icon: ShoppingBag },
-        { num: 4, title: 'Creative', icon: ImageIcon },
-        { num: 5, title: 'Audiences', icon: Target },
+        { num: 3, title: 'Product & Banner', icon: ImageIcon },
+        { num: 4, title: 'Audiences & Bids', icon: Target },
       ];
     }
-    return [
-      { num: 1, title: 'Objective', icon: Target },
-      { num: 2, title: 'Basics', icon: Settings },
-      { num: 3, title: 'Creative', icon: ImageIcon },
-      { num: 4, title: 'Targeting', icon: Target },
-    ];
   };
 
   const activeSteps = getSteps();
   const totalSteps = activeSteps.length;
 
+  const currentSelectedProduct = ecommProducts.find(p => (p.product_id || p.id)?.toString() === formData.productId);
+  const selectedBrandProducts = ecommProducts.filter(p => formData.selectedProducts.includes((p.product_id || p.id)?.toString()));
+
+  const filteredProducts = ecommProducts.filter(p => {
+    const title = (p.product_name || p.name || p.title || '').toLowerCase();
+    return title.includes(productSearch.toLowerCase());
+  });
+
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-8">
-      <Link href="/campaigns" className="inline-flex items-center text-gray-500 hover:text-[#4F23D6] font-bold uppercase tracking-wide transition-colors">
-        <ArrowLeft className="w-5 h-5 mr-2" /> Back to Campaigns
-      </Link>
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8">
+      {/* Top breadcrumb */}
+      <div className="flex items-center justify-between">
+        <Link href="/campaigns" className="inline-flex items-center text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-[#4F23D6] transition-colors">
+          <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to Campaigns
+        </Link>
+        <span className="text-xs font-bold uppercase tracking-wider text-purple-600 bg-purple-50 px-2.5 py-1 border border-purple-200">
+          Campaign Wizard
+        </span>
+      </div>
 
       <div>
-        <h1 className="text-4xl font-black uppercase tracking-tighter text-gray-900">Create <span className="text-[#4F23D6]">Campaign</span></h1>
-        <p className="text-gray-500 mt-2 font-medium">Launch a new advertising campaign</p>
+        <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-gray-900">
+          Create New <span className="text-[#4F23D6]">Ad Campaign</span>
+        </h1>
+        <p className="text-gray-500 text-sm mt-1 font-medium">
+          Configure real-time auction bids, targeting keywords, and live ad creatives.
+        </p>
       </div>
 
-      {/* Progress Bar */}
-      <div className="flex justify-between relative mb-12 mt-8">
-        <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-200 -translate-y-1/2 z-0" />
-        <div 
-          className="absolute top-1/2 left-0 h-1 bg-[#4F23D6] -translate-y-1/2 z-0 transition-all duration-500" 
-          style={{ width: totalSteps > 1 ? `${((step - 1) / (totalSteps - 1)) * 100}%` : '0%' }}
-        />
-        
-        {activeSteps.map((s) => {
-          const isActive = step === s.num;
-          const isCompleted = step > s.num;
-          const isLocked = !formData.objective && s.num > 1;
+      {/* Stepper Header */}
+      <div className="bg-white border-2 border-gray-900 p-4 shadow-[4px_4px_0px_0px_#110C24]">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {activeSteps.map((s) => {
+            const isActive = step === s.num;
+            const isCompleted = step > s.num;
 
-          return (
-            <div key={s.num} className={`relative z-10 flex flex-col items-center transition-all duration-500 ${isLocked ? 'opacity-30 blur-[1px] grayscale' : ''}`}>
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center border-4 transition-colors ${
-                isActive ? 'bg-white border-[#4F23D6] text-[#4F23D6] shadow-[0_0_15px_rgba(79,35,214,0.3)]' : 
-                isCompleted ? 'bg-[#4F23D6] border-[#4F23D6] text-white' : 
-                'bg-gray-50 border-gray-200 text-gray-400'
-              }`}>
-                {isCompleted ? <CheckCircle2 className="w-6 h-6" /> : <s.icon className="w-5 h-5" />}
+            return (
+              <div
+                key={s.num}
+                className={`p-2.5 border-2 flex items-center space-x-2 transition-all ${
+                  isActive
+                    ? 'border-[#4F23D6] bg-purple-50 text-[#4F23D6] font-black shadow-[2px_2px_0px_0px_#4F23D6]'
+                    : isCompleted
+                    ? 'border-gray-900 bg-gray-900 text-white font-bold'
+                    : 'border-gray-200 bg-gray-50 text-gray-400 font-bold'
+                }`}
+              >
+                <div className={`w-6 h-6 flex items-center justify-center text-xs font-black shrink-0 ${
+                  isCompleted ? 'bg-[#E1FF00] text-black' : isActive ? 'bg-[#4F23D6] text-white' : 'bg-gray-200 text-gray-500'
+                }`}>
+                  {isCompleted ? '✓' : s.num}
+                </div>
+                <span className="text-xs uppercase tracking-tight truncate">{s.title}</span>
               </div>
-              <span className={`absolute -bottom-8 font-bold uppercase tracking-wider text-xs whitespace-nowrap ${
-                isActive ? 'text-[#4F23D6]' : isCompleted ? 'text-gray-900' : 'text-gray-400'
-              }`}>{s.title}</span>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
-      <div className="bg-white border border-gray-200 p-8 shadow-sm mt-12 relative overflow-hidden">
-        
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
-            <p className="text-red-700 text-sm font-medium">{error}</p>
-          </div>
-        )}
-
-        <form onSubmit={step === totalSteps ? handleSubmit : handleNext} className="relative z-10">
-          
-          {/* STEP 1: OBJECTIVE */}
-          {step === 1 && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-black uppercase tracking-wide text-gray-900 mb-6">Choose your objective</h2>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {objectives.map((obj) => (
-                  <button
-                    key={obj.id}
-                    type="button"
-                    onClick={() => selectObjective(obj.id)}
-                    className={`flex flex-col items-start p-6 border-2 transition-all text-left group ${
-                      formData.objective === obj.id 
-                        ? 'border-[#4F23D6] bg-purple-50' 
-                        : 'border-gray-100 hover:border-[#4F23D6] hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className={`p-3 rounded-full mb-4 transition-colors ${
-                      formData.objective === obj.id 
-                        ? 'bg-[#4F23D6] text-white' 
-                        : 'bg-gray-100 text-gray-600 group-hover:bg-[#4F23D6] group-hover:text-white'
-                    }`}>
-                      <obj.icon className="w-6 h-6" />
-                    </div>
-                    <h3 className={`font-bold uppercase tracking-wide mb-2 ${
-                      formData.objective === obj.id ? 'text-[#4F23D6]' : 'text-gray-900'
-                    }`}>{obj.title}</h3>
-                    <p className="text-sm text-gray-500 font-medium">{obj.desc}</p>
-                  </button>
-                ))}
-              </div>
+      {/* Main 2-Column Split: Form (Left) & Live Preview (Right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left: Form Steps */}
+        <div className="lg:col-span-7 bg-white border-2 border-gray-900 p-6 sm:p-8 shadow-[6px_6px_0px_0px_#110C24]">
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-3 mb-6 text-red-700 text-xs font-bold">
+              {error}
             </div>
           )}
 
-          {/* STEP 2: BASICS (All Objectives) */}
-          {step === 2 && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-black uppercase tracking-wide text-gray-900 mb-6">Campaign Settings</h2>
-              <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Campaign Name</label>
-                <input required name="name" value={formData.name} onChange={handleChange} className="w-full bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6] transition-colors" placeholder="e.g. Summer Collection" />
-              </div>
-              <div className="grid grid-cols-2 gap-6">
+          <form onSubmit={step === totalSteps ? handleSubmit : handleNext}>
+            {/* STEP 1: OBJECTIVE */}
+            {step === 1 && (
+              <div className="space-y-6">
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Daily Budget (₹)</label>
-                  <input required type="number" min="5" name="dailyBudget" value={formData.dailyBudget} onChange={handleChange} className="w-full bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6] transition-colors font-mono" placeholder="500.00" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Start Date</label>
-                  <input required type="date" name="startDate" value={formData.startDate} onChange={handleChange} className="w-full bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6] transition-colors" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">End Date (Optional)</label>
-                  <input type="date" name="endDate" value={formData.endDate} onChange={handleChange} className="w-full bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6] transition-colors" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Bidding Strategy</label>
-                  <select name="biddingStrategy" value={formData.biddingStrategy} onChange={handleChange} className="w-full bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6] transition-colors">
-                    <option value="FIXED">Fixed Bids</option>
-                    <option value="DYNAMIC_DOWN">Dynamic — Down Only</option>
-                    <option value="DYNAMIC_UP_DOWN">Dynamic — Up & Down</option>
-                  </select>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {formData.biddingStrategy === 'FIXED' && 'Your bid stays exactly as set.'}
-                    {formData.biddingStrategy === 'DYNAMIC_DOWN' && 'Bid is lowered when conversion is unlikely.'}
-                    {formData.biddingStrategy === 'DYNAMIC_UP_DOWN' && 'Bid is raised when conversion is likely, lowered when not.'}
+                  <h2 className="text-xl font-black uppercase tracking-tight text-gray-900">
+                    Step 1: Choose Advertising Objective
+                  </h2>
+                  <p className="text-xs text-gray-500 font-medium mt-1">
+                    Select where and how your products will be presented to shoppers on GoldGini.
                   </p>
                 </div>
-              </div>
-            </div>
-          )}
 
-          {/* STEP 3: SPONSORED PRODUCTS / DISPLAY - Select Single Product */}
-          {step === 3 && (formData.objective === 'SPONSORED_PRODUCTS' || formData.objective === 'DISPLAY') && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-black uppercase tracking-wide text-gray-900 mb-6">Select Product</h2>
-              <div className="p-6 bg-blue-50 border border-blue-100 mb-6 rounded-md">
-                <label className="block text-xs font-bold text-[#4F23D6] uppercase tracking-wider mb-2 flex items-center">
-                  <ShoppingBag className="w-4 h-4 mr-2" /> Choose Product to Advertise
-                </label>
+                <div className="space-y-4">
+                  {objectives.map((obj) => (
+                    <div
+                      key={obj.id}
+                      onClick={() => selectObjective(obj.id)}
+                      className={`p-5 border-2 cursor-pointer transition-all flex items-start space-x-4 ${
+                        formData.objective === obj.id
+                          ? 'border-[#4F23D6] bg-purple-50/60 shadow-[4px_4px_0px_0px_#4F23D6]'
+                          : 'border-gray-200 hover:border-gray-900 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className={`p-3 shrink-0 ${
+                        formData.objective === obj.id ? 'bg-[#4F23D6] text-white' : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        <obj.icon className="w-6 h-6" />
+                      </div>
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-black text-sm uppercase tracking-wide text-gray-900">
+                            {obj.title}
+                          </h3>
+                          <span className="text-[10px] bg-[#E1FF00] border border-black text-black font-black uppercase px-1.5 py-0.5">
+                            {obj.badge}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-600 leading-relaxed font-medium">
+                          {obj.desc}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* STEP 2: BASICS */}
+            {step === 2 && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-black uppercase tracking-tight text-gray-900">
+                    Step 2: Campaign Settings & Budget
+                  </h2>
+                  <p className="text-xs text-gray-500 font-medium mt-1">
+                    Set campaign name, schedule, and daily spend limit.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                      Campaign Name *
+                    </label>
+                    <input
+                      required
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      placeholder="e.g. Festive Gold Bangles Promo - Diwali"
+                      className="w-full px-4 py-2.5 border-2 border-gray-900 text-xs font-bold text-gray-900 focus:outline-none focus:border-[#4F23D6]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                        Daily Budget (₹) *
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-gray-500">₹</span>
+                        <input
+                          required
+                          type="number"
+                          min="100"
+                          step="50"
+                          name="dailyBudget"
+                          value={formData.dailyBudget}
+                          onChange={handleChange}
+                          className="w-full pl-7 pr-3 py-2.5 border-2 border-gray-900 text-xs font-black text-gray-900 focus:outline-none focus:border-[#4F23D6]"
+                        />
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-1">Minimum daily budget is ₹100</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                        Bidding Strategy
+                      </label>
+                      <select
+                        name="biddingStrategy"
+                        value={formData.biddingStrategy}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2.5 border-2 border-gray-900 text-xs font-bold text-gray-900 focus:outline-none focus:border-[#4F23D6] bg-white"
+                      >
+                        <option value="FIXED">Fixed Bid (Strict CPC)</option>
+                        <option value="DYNAMIC_DOWN">Dynamic - Down Only</option>
+                        <option value="DYNAMIC_UP_DOWN">Dynamic - Up & Down (Optimal)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                        Start Date *
+                      </label>
+                      <input
+                        required
+                        type="date"
+                        name="startDate"
+                        value={formData.startDate}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border-2 border-gray-900 text-xs font-bold text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                        End Date (Optional)
+                      </label>
+                      <input
+                        type="date"
+                        name="endDate"
+                        value={formData.endDate}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border-2 border-gray-900 text-xs font-bold text-gray-900"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: PRODUCT PICKER / CREATIVE */}
+            {step === 3 && (formData.objective === 'SPONSORED_PRODUCTS' || formData.objective === 'DISPLAY') && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-black uppercase tracking-tight text-gray-900">
+                    Step 3: Select Product Catalog Item
+                  </h2>
+                  <p className="text-xs text-gray-500 font-medium mt-1">
+                    Choose the item from your store to advertise in this slot.
+                  </p>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search by product title or SKU..."
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 border-2 border-gray-900 text-xs font-bold text-gray-900 focus:outline-none focus:border-[#4F23D6]"
+                  />
+                </div>
+
+                {/* Product Grid / Cards */}
                 {fetchingProducts ? (
-                  <p className="text-gray-500 text-sm font-medium animate-pulse">Fetching your products from store...</p>
+                  <div className="p-8 text-center text-xs font-bold text-[#4F23D6] animate-pulse">
+                    Connecting to catalog database...
+                  </div>
+                ) : filteredProducts.length === 0 ? (
+                  <div className="p-6 bg-gray-50 border border-gray-200 text-center text-xs text-gray-500 font-bold">
+                    No products matched your search. Try another keyword.
+                  </div>
                 ) : (
-                  <select 
-                    required
-                    className="w-full bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6] transition-colors"
-                    value={formData.productId}
-                    onChange={handleProductSelect}
-                  >
-                    <option value="">-- Select a Product --</option>
-                    {ecommProducts.map((p: any) => {
-                      const id = p.product_id || p.id;
-                      const name = p.product_name || p.name || p.title || `Product #${id}`;
-                      const price = p.price || p.sale_price || '';
+                  <div className="max-h-80 overflow-y-auto space-y-2 border border-gray-200 p-2 divide-y divide-gray-100">
+                    {filteredProducts.map((p) => {
+                      const id = (p.product_id || p.id)?.toString();
+                      const name = p.product_name || p.name || p.title || `Item #${id}`;
+                      const price = p.price || p.sale_price || '999';
+                      const isSelected = formData.productId === id;
+
                       return (
-                        <option key={id} value={id}>
-                          {name} {price ? `— ₹${price}` : ''}
-                        </option>
+                        <div
+                          key={id}
+                          onClick={() => handleProductSelect(id)}
+                          className={`p-3 flex items-center justify-between cursor-pointer transition-all ${
+                            isSelected
+                              ? 'bg-purple-50 border-2 border-[#4F23D6]'
+                              : 'hover:bg-gray-50 border-2 border-transparent'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="w-12 h-12 bg-gray-100 border border-gray-200 shrink-0 overflow-hidden">
+                              <img
+                                src={p.image || p.image_url || p.thumbnail || 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=200'}
+                                alt="Product"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-gray-900 line-clamp-1">{name}</p>
+                              <span className="text-xs font-black text-[#4F23D6]">₹{price}</span>
+                            </div>
+                          </div>
+                          <div className={`px-2.5 py-1 text-[10px] font-black uppercase ${
+                            isSelected ? 'bg-[#4F23D6] text-white' : 'bg-gray-200 text-gray-600'
+                          }`}>
+                            {isSelected ? 'Selected' : 'Select'}
+                          </div>
+                        </div>
                       );
                     })}
-                  </select>
+                  </div>
                 )}
-                {formData.objective === 'SPONSORED_PRODUCTS' && (
-                  <p className="text-xs text-gray-500 mt-2 font-medium">Your ad creative will be automatically generated using this product&apos;s default image and title.</p>
-                )}
-              </div>
-            </div>
-          )}
 
-          {/* STEP 3: SPONSORED BRANDS - Brand Creative */}
-          {step === 3 && formData.objective === 'SPONSORED_BRANDS' && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-black uppercase tracking-wide text-gray-900 mb-6">Brand Creative</h2>
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Brand Logo URL</label>
-                  <input required name="brandLogoUrl" value={formData.brandLogoUrl} onChange={handleChange} className="w-full bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6]" placeholder="https://..." />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Custom Headline</label>
-                  <input required name="headline" value={formData.headline} onChange={handleChange} className="w-full bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6]" placeholder="Discover our new collection" />
-                </div>
+                {/* Display Specific Headline if Display */}
+                {formData.objective === 'DISPLAY' && (
+                  <div className="pt-4 border-t border-gray-200 space-y-3">
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      Banner Headline Text
+                    </label>
+                    <input
+                      name="headline"
+                      value={formData.headline}
+                      onChange={handleChange}
+                      placeholder="e.g. Handcrafted 24K Bridal Sets — Flat 25% Off This Week"
+                      className="w-full px-3 py-2 border-2 border-gray-900 text-xs font-bold text-gray-900"
+                    />
+                  </div>
+                )}
               </div>
-              
-              <div className="p-6 bg-gray-50 border border-gray-200 mt-6">
-                <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-2">Select up to 3 Products to Feature</label>
-                {fetchingProducts ? (
-                  <p className="text-gray-500 text-sm">Loading products...</p>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <select 
-                      className="flex-1 bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6]"
-                      onChange={handleMultiProductSelect}
-                      value=""
-                      disabled={formData.selectedProducts.length >= 3}
-                    >
-                      <option value="">-- Add Product to Carousel --</option>
-                      {ecommProducts.map((p: any) => {
-                        const id = p.product_id || p.id;
-                        const name = p.product_name || p.name || p.title || `Product #${id}`;
+            )}
+
+            {/* STEP 3: SPONSORED BRANDS */}
+            {step === 3 && formData.objective === 'SPONSORED_BRANDS' && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-black uppercase tracking-tight text-gray-900">
+                    Step 3: Brand Assets & Multi-Product Feature
+                  </h2>
+                  <p className="text-xs text-gray-500 font-medium mt-1">
+                    Upload your official brand logo and pick up to 3 showcase items.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                      Brand Logo URL
+                    </label>
+                    <input
+                      name="brandLogoUrl"
+                      value={formData.brandLogoUrl}
+                      onChange={handleChange}
+                      placeholder="https://.../brand-logo.png"
+                      className="w-full px-3 py-2 border-2 border-gray-900 text-xs font-bold text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                      Brand Headline
+                    </label>
+                    <input
+                      name="headline"
+                      value={formData.headline}
+                      onChange={handleChange}
+                      placeholder="e.g. Royal Heritage Gold Collection"
+                      className="w-full px-3 py-2 border-2 border-gray-900 text-xs font-bold text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                      Selected Featured Products ({formData.selectedProducts.length}/3)
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {ecommProducts.slice(0, 6).map((p) => {
+                        const id = (p.product_id || p.id)?.toString();
+                        const isChosen = formData.selectedProducts.includes(id);
+
                         return (
-                          <option key={id} value={id} disabled={formData.selectedProducts.includes(id?.toString())}>
-                            {name}
-                          </option>
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => isChosen ? removeSelectedProduct(id) : handleMultiProductSelect(id)}
+                            className={`p-2 border-2 text-left text-xs font-bold flex flex-col justify-between ${
+                              isChosen ? 'border-[#4F23D6] bg-purple-50 text-[#4F23D6]' : 'border-gray-200 text-gray-700 hover:border-gray-900'
+                            }`}
+                          >
+                            <span className="truncate">{p.product_name || p.name || p.title}</span>
+                            <span className="text-[10px] uppercase font-black mt-1">
+                              {isChosen ? '✓ Added' : '+ Add'}
+                            </span>
+                          </button>
                         );
                       })}
-                    </select>
+                    </div>
                   </div>
-                )}
-                
-                {formData.selectedProducts.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {formData.selectedProducts.map(id => {
-                      const p = ecommProducts.find(prod => (prod.product_id || prod.id)?.toString() === id);
-                      const name = p?.product_name || p?.name || p?.title || `Product #${id}`;
-                      return (
-                        <div key={id} className="flex justify-between items-center bg-white p-3 border border-gray-200">
-                          <span className="text-sm font-medium text-gray-700">{name}</span>
-                          <button type="button" onClick={() => removeSelectedProduct(id)} className="text-red-500 hover:text-red-700">
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-                
-                <div className="mt-6">
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 text-center">OR</p>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Link directly to your Storefront</label>
-                  <input name="storeUrl" value={formData.storeUrl} onChange={handleChange} className="w-full bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6]" placeholder="https://goldgini.com/store/my-brand" />
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* STEP 4: DISPLAY - Custom Creative */}
-          {step === 4 && formData.objective === 'DISPLAY' && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-black uppercase tracking-wide text-gray-900 mb-6">Custom Creative</h2>
-              <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Lifestyle Image URL</label>
-                <input required name="imageUrl" value={formData.imageUrl} onChange={handleChange} className="w-full bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6]" placeholder="https://..." />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Headline</label>
-                <input required name="headline" value={formData.headline} onChange={handleChange} className="w-full bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6]" placeholder="Ad headline..." />
-              </div>
-            </div>
-          )}
-
-          {/* FINAL STEP: TARGETING */}
-          {(step === totalSteps && formData.objective !== '') && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-black uppercase tracking-wide text-gray-900 mb-6">Targeting & Bidding</h2>
-              
-              {formData.objective === 'DISPLAY' ? (
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Target Audience</label>
-                  <select required name="audience" value={formData.audience} onChange={handleChange} className="w-full bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6] mb-6">
-                    <option value="">-- Select Audience --</option>
-                    <option value="retargeting_views">Shoppers who viewed my products</option>
-                    <option value="retargeting_cart">Shoppers who abandoned cart</option>
-                    <option value="in_market">In-market for fine jewelry</option>
-                  </select>
-                  
-                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Negative Audiences / Placements</label>
-                  <input name="negativeKeywords" value={formData.negativeKeywords} onChange={handleChange} className="w-full bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6]" placeholder="e.g. existing_customers" />
-                  <p className="text-xs text-gray-500 mt-1 mb-6">Prevent ads from showing to these audiences.</p>
-                </div>
-              ) : (
-                <>
-                  <div className="bg-purple-50 border border-purple-200 p-6 rounded-md mb-6">
-                    <p className="text-purple-900 text-sm font-medium">When users search for these keywords, they will enter a second-price auction. You only pay ₹0.01 more than the next highest bidder.</p>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Keywords (Comma separated)</label>
-                    <input required name="keywords" value={formData.keywords} onChange={handleChange} className="w-full bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6] transition-colors" placeholder="gold ring, engagement ring, 24k gold" />
-                  </div>
-                  <div className="mt-4">
-                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Match Type</label>
-                    <select name="matchType" value={formData.matchType} onChange={handleChange} className="w-full bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6] transition-colors">
-                      <option value="BROAD">Broad Match — Widest reach, includes related terms</option>
-                      <option value="PHRASE">Phrase Match — Phrase must appear in order</option>
-                      <option value="EXACT">Exact Match — Only exact keyword matches</option>
-                    </select>
-                  </div>
-                  <div className="mt-4">
-                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Negative Keywords</label>
-                    <input name="negativeKeywords" value={formData.negativeKeywords} onChange={handleChange} className="w-full bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6] transition-colors" placeholder="e.g. cheap, free, fake" />
-                    <p className="text-xs text-gray-500 mt-1">Prevent your ad from showing when these terms are searched.</p>
-                  </div>
-                </>
-              )}
-
-              <div className="mt-6">
-                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Max Bid per Click (₹)</label>
-                <input required type="number" min="0.1" step="0.1" name="bidAmount" value={formData.bidAmount} onChange={handleChange} className="w-full max-w-xs bg-white border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:border-[#4F23D6] transition-colors font-mono" placeholder="5.00" />
-                <p className="text-xs text-gray-400 mt-1">You&apos;ll never pay more than this per click. In a second-price auction, you typically pay less.</p>
-              </div>
-            </div>
-          )}
-
-          <div className="mt-10 flex justify-between pt-6 border-t border-gray-200">
-            {step > 1 ? (
-              <button type="button" onClick={() => setStep(step - 1)} className="px-6 py-3 border-2 border-gray-300 text-gray-700 font-bold uppercase tracking-wide hover:bg-gray-50 transition-colors">
-                Back
-              </button>
-            ) : <div />}
-            
-            {step === 1 ? (
-              <button 
-                type="button" 
-                onClick={() => setStep(2)}
-                disabled={!formData.objective}
-                className="px-8 py-3 bg-[#4F23D6] text-white font-bold uppercase tracking-wide hover:bg-[#3b19a3] transition-colors disabled:opacity-50"
-              >
-                Next Step
-              </button>
-            ) : (
-              <button 
-                type="submit" 
-                disabled={loading}
-                className="px-8 py-3 bg-[#4F23D6] text-white font-bold uppercase tracking-wide hover:bg-[#3b19a3] transition-colors disabled:opacity-50"
-              >
-                {loading ? 'Processing...' : step === totalSteps ? 'Launch Campaign' : 'Next Step'}
-              </button>
             )}
-          </div>
-        </form>
+
+            {/* STEP 4: TARGETING & BIDS */}
+            {step === totalSteps && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-black uppercase tracking-tight text-gray-900">
+                    Step 4: Target Keywords & CPC Bids
+                  </h2>
+                  <p className="text-xs text-gray-500 font-medium mt-1">
+                    Keywords connect your ad to active shoppers entering search queries.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Keywords Input */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                      Target Keywords (Comma Separated) *
+                    </label>
+                    <textarea
+                      required
+                      name="keywords"
+                      rows={3}
+                      value={formData.keywords}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2.5 border-2 border-gray-900 text-xs font-bold text-gray-900 focus:outline-none focus:border-[#4F23D6]"
+                      placeholder="gold necklace, 22k gold, bridal jewellery"
+                    />
+                  </div>
+
+                  {/* Quick Suggestions Chips */}
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-gray-500 block mb-1.5">
+                      + Click to Add High-Intent Keyword Suggestions:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {suggestedKeywords.map((kw) => (
+                        <button
+                          key={kw}
+                          type="button"
+                          onClick={() => addSuggestedKeyword(kw)}
+                          className="px-2 py-1 bg-gray-100 hover:bg-[#E1FF00] text-gray-800 text-[10px] font-bold border border-gray-300 transition-colors"
+                        >
+                          + {kw}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Match Type & Max Bid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                        Keyword Match Type
+                      </label>
+                      <select
+                        name="matchType"
+                        value={formData.matchType}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2.5 border-2 border-gray-900 text-xs font-bold text-gray-900 bg-white"
+                      >
+                        <option value="BROAD">Broad Match (Maximum Reach)</option>
+                        <option value="PHRASE">Phrase Match (Order Sensitive)</option>
+                        <option value="EXACT">Exact Match (Highest Conversion)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                        Max CPC Bid (₹) *
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-gray-500">₹</span>
+                        <input
+                          required
+                          type="number"
+                          step="0.25"
+                          min="0.5"
+                          name="bidAmount"
+                          value={formData.bidAmount}
+                          onChange={handleChange}
+                          className="w-full pl-7 pr-3 py-2.5 border-2 border-gray-900 text-xs font-black text-gray-900"
+                        />
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-1">Second-price RTB: You only pay ₹0.01 above runner-up</p>
+                    </div>
+                  </div>
+
+                  {/* Negative Keywords */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                      Negative Keywords (Exclude Searches)
+                    </label>
+                    <input
+                      name="negativeKeywords"
+                      value={formData.negativeKeywords}
+                      onChange={handleChange}
+                      placeholder="e.g. cheap, free, artificial, replica"
+                      className="w-full px-3 py-2 border border-gray-300 text-xs font-bold text-gray-900"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Stepper Navigation Buttons */}
+            <div className="flex items-center justify-between pt-6 mt-8 border-t-2 border-gray-100">
+              {step > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => setStep(step - 1)}
+                  className="px-5 py-2.5 border-2 border-gray-900 text-gray-900 text-xs font-black uppercase tracking-wider hover:bg-gray-100 transition-colors"
+                >
+                  ← Back
+                </button>
+              ) : <div />}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-8 py-3 bg-[#4F23D6] hover:bg-[#3815a8] text-white text-xs font-black uppercase tracking-wider shadow-[4px_4px_0px_0px_#E1FF00] hover:shadow-[6px_6px_0px_0px_#E1FF00] hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center space-x-2 disabled:opacity-50"
+              >
+                <span>{loading ? 'Submitting to Moderation...' : step === totalSteps ? '🚀 Submit & Launch Campaign' : 'Continue Next Step →'}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Right: Live Interactive Ad Preview */}
+        <div className="lg:col-span-5">
+          <LiveAdPreview
+            objective={formData.objective}
+            name={formData.name}
+            headline={formData.headline}
+            imageUrl={formData.imageUrl}
+            brandLogoUrl={formData.brandLogoUrl}
+            selectedProduct={currentSelectedProduct}
+            selectedProductsList={selectedBrandProducts}
+            bidAmount={formData.bidAmount}
+          />
+        </div>
       </div>
     </div>
   );

@@ -2,24 +2,42 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Filter, Plus, Megaphone, Trash2, Eye, MousePointerClick } from 'lucide-react';
+import { 
+  Search, 
+  Filter, 
+  Plus, 
+  Megaphone, 
+  Trash2, 
+  Eye, 
+  MousePointerClick, 
+  Play, 
+  Pause, 
+  ArrowUpRight,
+  Sparkles,
+  TrendingUp,
+  Tag,
+  Clock,
+  CheckCircle2,
+  AlertCircle
+} from 'lucide-react';
 
 export default function CampaignsList() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [sortBy, setSortBy] = useState<'newest' | 'spend' | 'clicks'>('newest');
 
   useEffect(() => {
     fetchCampaigns();
   }, []);
 
   async function fetchCampaigns() {
+    setLoading(true);
     try {
       const res = await fetch('/api/campaigns');
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.campaigns) {
         setCampaigns(data.campaigns);
       }
     } catch (error) {
@@ -29,8 +47,27 @@ export default function CampaignsList() {
     }
   }
 
+  const toggleCampaignStatus = async (id: number, currentStatus: string) => {
+    const newStatus = currentStatus === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+    try {
+      const res = await fetch(`/api/campaigns/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCampaigns(campaigns.map(c => c.id === id ? { ...c, status: newStatus } : c));
+      } else {
+        alert(data.error || 'Failed to update campaign status');
+      }
+    } catch (e) {
+      alert('Network error while updating status');
+    }
+  };
+
   const handleDelete = async (campaignId: number, campaignName: string) => {
-    if (!confirm(`Are you sure you want to delete "${campaignName}"? This action cannot be undone.`)) return;
+    if (!confirm(`Are you sure you want to permanently delete "${campaignName}"?`)) return;
     
     try {
       const res = await fetch(`/api/campaigns/${campaignId}`, { method: 'DELETE' });
@@ -45,168 +82,238 @@ export default function CampaignsList() {
     }
   };
 
-  // Filter campaigns
-  const filteredCampaigns = campaigns.filter(camp => {
-    const matchesSearch = camp.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'ALL' || camp.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredCampaigns = campaigns
+    .filter(camp => {
+      const matchesSearch = camp.name?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === 'ALL' || camp.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'spend') return Number(b.total_spend || 0) - Number(a.total_spend || 0);
+      if (sortBy === 'clicks') return Number(b.total_clicks || 0) - Number(a.total_clicks || 0);
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    });
 
   const statusCounts = {
     ALL: campaigns.length,
     ACTIVE: campaigns.filter(c => c.status === 'ACTIVE').length,
     PAUSED: campaigns.filter(c => c.status === 'PAUSED').length,
     BUDGET_EXHAUSTED: campaigns.filter(c => c.status === 'BUDGET_EXHAUSTED').length,
-    ENDED: campaigns.filter(c => c.status === 'ENDED').length,
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
-      <div className="flex justify-between items-end">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter text-gray-900">Your <span className="text-[#4F23D6]">Campaigns</span></h1>
-          <p className="text-gray-500 mt-2 font-medium">Manage and track your advertising campaigns</p>
+          <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-[#4F23D6] mb-1">
+            <Megaphone className="w-4 h-4" />
+            <span>Ad Portfolio Management</span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-gray-900">
+            Your <span className="text-[#4F23D6]">Ad Campaigns</span>
+          </h1>
+          <p className="text-gray-500 text-sm mt-1 font-medium">
+            Monitor real-time auctions, click-through rates, and adjust keyword bids.
+          </p>
         </div>
+
         <Link 
           href="/campaigns/new" 
-          className="bg-[#4F23D6] text-white px-6 py-3 font-bold uppercase tracking-wide flex items-center hover:bg-gray-900 transition-colors shadow-[4px_4px_0px_0px_#E1FF00] hover:shadow-[6px_6px_0px_0px_#E1FF00] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[2px_2px_0px_0px_#E1FF00]"
+          className="bg-[#4F23D6] hover:bg-[#3815a8] text-white px-6 py-3 font-black text-xs uppercase tracking-wider flex items-center space-x-2 shadow-[4px_4px_0px_0px_#E1FF00] hover:shadow-[6px_6px_0px_0px_#E1FF00] hover:-translate-y-0.5 active:translate-y-0 transition-all"
         >
-          <Plus className="w-5 h-5 mr-2" /> New Campaign
+          <Plus className="w-4 h-4" />
+          <span>Create New Campaign</span>
         </Link>
       </div>
 
-      {/* Controls */}
-      <div className="flex space-x-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <input 
-            type="text" 
-            placeholder="Search campaigns..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 text-gray-900 focus:outline-none focus:border-[#4F23D6] focus:ring-1 focus:ring-[#4F23D6] transition-colors placeholder-gray-400 shadow-sm"
-          />
+      {/* Filter and Controls Strip */}
+      <div className="bg-white border-2 border-gray-900 p-4 shadow-[4px_4px_0px_0px_#110C24] space-y-4">
+        {/* Status Tabs */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-3">
+          {[
+            { id: 'ALL', label: 'All Campaigns', count: statusCounts.ALL },
+            { id: 'ACTIVE', label: 'Active', count: statusCounts.ACTIVE },
+            { id: 'PAUSED', label: 'Paused', count: statusCounts.PAUSED },
+            { id: 'BUDGET_EXHAUSTED', label: 'Out of Budget', count: statusCounts.BUDGET_EXHAUSTED },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setStatusFilter(tab.id)}
+              className={`px-3 py-1.5 text-xs font-black uppercase tracking-wider border-2 transition-all ${
+                statusFilter === tab.id
+                  ? 'border-gray-900 bg-[#4F23D6] text-white shadow-[2px_2px_0px_0px_#E1FF00]'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              {tab.label} ({tab.count})
+            </button>
+          ))}
         </div>
-        <div className="relative">
-          <button 
-            onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-            className="px-4 py-3 bg-white border border-gray-300 text-gray-700 flex items-center hover:bg-gray-50 transition-colors font-bold uppercase tracking-wide shadow-sm"
-          >
-            <Filter className="w-5 h-5 mr-2" /> 
-            {statusFilter === 'ALL' ? 'All Status' : statusFilter.replace('_', ' ')}
-          </button>
-          {showFilterDropdown && (
-            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 shadow-lg z-20 w-56">
-              {Object.entries(statusCounts).map(([status, count]) => (
-                <button
-                  key={status}
-                  onClick={() => { setStatusFilter(status); setShowFilterDropdown(false); }}
-                  className={`w-full text-left px-4 py-3 flex justify-between items-center hover:bg-gray-50 transition-colors text-sm font-bold uppercase tracking-wide ${
-                    statusFilter === status ? 'bg-purple-50 text-[#4F23D6]' : 'text-gray-700'
-                  }`}
-                >
-                  <span>{status === 'ALL' ? 'All Campaigns' : status.replace('_', ' ')}</span>
-                  <span className="text-gray-400 font-mono">{count}</span>
-                </button>
-              ))}
-            </div>
-          )}
+
+        {/* Search & Sort Controls */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="relative w-full sm:max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input 
+              type="text" 
+              placeholder="Search campaigns by name..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-white border-2 border-gray-900 text-xs font-bold text-gray-900 focus:outline-none focus:border-[#4F23D6]"
+            />
+          </div>
+
+          <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
+            <span className="text-xs font-bold uppercase text-gray-500">Sort by:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="border-2 border-gray-900 px-3 py-1.5 text-xs font-bold text-gray-900 bg-white"
+            >
+              <option value="newest">Recently Created</option>
+              <option value="spend">Highest Spend</option>
+              <option value="clicks">Highest Clicks</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white border border-gray-200 shadow-sm overflow-hidden">
+      {/* Campaigns Table / Cards */}
+      <div className="bg-white border-2 border-gray-900 shadow-[6px_6px_0px_0px_#110C24] overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-[#4F23D6] font-bold uppercase tracking-widest">Loading...</div>
+          <div className="p-16 text-center text-sm font-bold text-[#4F23D6] animate-pulse">
+            Loading your campaigns...
+          </div>
         ) : filteredCampaigns.length === 0 ? (
-          <div className="p-16 text-center flex flex-col items-center">
-            <Megaphone className="w-16 h-16 text-gray-300 mb-4" />
-            <h3 className="text-xl font-bold text-gray-900 uppercase tracking-wide mb-2">
-              {searchQuery || statusFilter !== 'ALL' ? 'No Matching Campaigns' : 'No Campaigns Yet'}
-            </h3>
-            <p className="text-gray-500 mb-6 font-medium">
-              {searchQuery || statusFilter !== 'ALL' 
-                ? 'Try adjusting your search or filter.' 
-                : 'Create your first campaign to start driving traffic to your products.'}
-            </p>
-            {!searchQuery && statusFilter === 'ALL' && (
-              <Link 
-                href="/campaigns/new" 
-                className="border-2 border-[#4F23D6] text-[#4F23D6] px-6 py-3 font-bold uppercase tracking-wide hover:bg-[#4F23D6] hover:text-white transition-colors"
-              >
-                Get Started
-              </Link>
-            )}
+          <div className="p-16 text-center space-y-4">
+            <div className="w-16 h-16 bg-purple-50 text-[#4F23D6] flex items-center justify-center mx-auto border-2 border-[#4F23D6]">
+              <Megaphone className="w-8 h-8" />
+            </div>
+            <div>
+              <h3 className="text-base font-black uppercase text-gray-900">No campaigns found</h3>
+              <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto font-medium">
+                {searchQuery || statusFilter !== 'ALL'
+                  ? 'Try adjusting your search query or status filter.'
+                  : 'Start driving high-intent customer traffic to your catalog today.'}
+              </p>
+            </div>
+            <Link
+              href="/campaigns/new"
+              className="inline-flex items-center space-x-2 px-6 py-2.5 bg-[#4F23D6] text-white text-xs font-black uppercase tracking-wider shadow-[3px_3px_0px_0px_#E1FF00]"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Launch Your First Ad</span>
+            </Link>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500">
-                  <th className="p-4 font-bold">Campaign Name</th>
-                  <th className="p-4 font-bold">Status</th>
-                  <th className="p-4 font-bold text-right">Daily Budget</th>
-                  <th className="p-4 font-bold text-right">Total Spent</th>
-                  <th className="p-4 font-bold text-right">Impressions</th>
-                  <th className="p-4 font-bold text-right">Clicks</th>
-                  <th className="p-4 font-bold text-right">CTR</th>
-                  <th className="p-4 font-bold text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredCampaigns.map((camp: any) => {
-                  const ctr = camp._count?.impressions > 0 
-                    ? ((camp._count.clicks / camp._count.impressions) * 100).toFixed(2) 
-                    : '0.00';
-                  return (
-                    <tr key={camp.id} className="hover:bg-gray-50 transition-colors group">
-                      <td className="p-4">
-                        <Link href={`/campaigns/${camp.id}`} className="font-bold text-gray-900 hover:text-[#4F23D6] transition-colors">
-                          {camp.name}
-                        </Link>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {camp.keywords?.length || 0} keywords · {camp.ads?.length || 0} ads
-                        </p>
-                      </td>
-                      <td className="p-4">
-                        <span className={`px-2 py-1 text-xs font-bold uppercase tracking-wider ${
-                          camp.status === 'ACTIVE' ? 'bg-green-100 text-green-700' :
-                          camp.status === 'PAUSED' ? 'bg-yellow-100 text-yellow-700' :
-                          camp.status === 'BUDGET_EXHAUSTED' ? 'bg-red-100 text-red-700' :
-                          'bg-gray-100 text-gray-600'
-                        }`}>
-                          {camp.status}
-                        </span>
-                      </td>
-                      <td className="p-4 text-right font-mono text-gray-600">
-                        ₹{Number(camp.dailyBudget).toFixed(2)}
-                      </td>
-                      <td className="p-4 text-right font-mono text-gray-600">
-                        ₹{Number(camp.totalSpent).toFixed(2)}
-                      </td>
-                      <td className="p-4 text-right text-gray-600">
-                        {(camp._count?.impressions || 0).toLocaleString()}
-                      </td>
-                      <td className="p-4 text-right text-gray-600">
-                        {(camp._count?.clicks || 0).toLocaleString()}
-                      </td>
-                      <td className="p-4 text-right font-mono text-[#4F23D6] font-bold">
-                        {ctr}%
-                      </td>
-                      <td className="p-4 text-center">
-                        <button 
-                          onClick={() => handleDelete(camp.id, camp.name)}
-                          className="p-2 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                          title="Delete campaign"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="divide-y-2 divide-gray-100">
+            {filteredCampaigns.map((camp) => {
+              const dailyBudget = Number(camp.daily_budget || 0);
+              const spend = Number(camp.spend || camp.total_spend || 0);
+              const budgetUsagePercent = dailyBudget > 0 ? Math.min(100, (spend / dailyBudget) * 100) : 0;
+              const impressions = Number(camp.impressions || camp.total_impressions || 0);
+              const clicks = Number(camp.clicks || camp.total_clicks || 0);
+              const ctr = impressions > 0 ? ((clicks / impressions) * 100).toFixed(2) : '0.00';
+              const isActive = camp.status === 'ACTIVE';
+
+              return (
+                <div 
+                  key={camp.id} 
+                  className="p-5 sm:p-6 hover:bg-gray-50/80 transition-colors flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6"
+                >
+                  {/* Left: Info & Badges */}
+                  <div className="space-y-2 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link 
+                        href={`/campaigns/${camp.id}`}
+                        className="text-base font-black uppercase text-gray-900 hover:text-[#4F23D6] transition-colors flex items-center space-x-1"
+                      >
+                        <span>{camp.name}</span>
+                        <ArrowUpRight className="w-4 h-4 opacity-50" />
+                      </Link>
+
+                      {/* Status Badge */}
+                      <span className={`px-2.5 py-0.5 text-[10px] font-black uppercase border ${
+                        camp.status === 'ACTIVE'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-500'
+                          : camp.status === 'PAUSED'
+                          ? 'bg-gray-100 text-gray-700 border-gray-400'
+                          : 'bg-amber-50 text-amber-700 border-amber-500'
+                      }`}>
+                        {camp.status}
+                      </span>
+
+                      <span className="text-[10px] bg-purple-50 text-[#4F23D6] border border-purple-200 px-2 py-0.5 font-bold uppercase">
+                        {camp.objective || 'SPONSORED_PRODUCTS'}
+                      </span>
+                    </div>
+
+                    {/* Spend progress bar */}
+                    <div className="space-y-1 max-w-md">
+                      <div className="flex justify-between text-[11px] font-bold text-gray-500">
+                        <span>Today&apos;s Spend: ₹{spend.toFixed(2)}</span>
+                        <span>Daily Cap: ₹{dailyBudget.toFixed(2)} ({budgetUsagePercent.toFixed(0)}%)</span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-200 overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-500 ${
+                            budgetUsagePercent > 80 ? 'bg-amber-500' : 'bg-[#4F23D6]'
+                          }`}
+                          style={{ width: `${budgetUsagePercent}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Middle: Key Performance Metrics */}
+                  <div className="grid grid-cols-3 gap-4 text-center shrink-0 w-full sm:w-auto border-y sm:border-y-0 sm:border-x border-gray-200 py-3 sm:py-0 sm:px-6">
+                    <div>
+                      <div className="text-[10px] uppercase font-bold text-gray-400">Impressions</div>
+                      <div className="text-sm font-black text-gray-900">{impressions.toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase font-bold text-gray-400">Clicks</div>
+                      <div className="text-sm font-black text-gray-900">{clicks.toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase font-bold text-gray-400">Avg CTR</div>
+                      <div className="text-sm font-black text-[#4F23D6]">{ctr}%</div>
+                    </div>
+                  </div>
+
+                  {/* Right: Actions */}
+                  <div className="flex items-center space-x-2 self-end lg:self-center shrink-0">
+                    <button
+                      onClick={() => toggleCampaignStatus(camp.id, camp.status)}
+                      className={`p-2 border-2 border-gray-900 transition-colors ${
+                        isActive 
+                          ? 'bg-amber-100 hover:bg-amber-200 text-amber-900' 
+                          : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900'
+                      }`}
+                      title={isActive ? 'Pause Campaign' : 'Activate Campaign'}
+                    >
+                      {isActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                    </button>
+
+                    <Link
+                      href={`/campaigns/${camp.id}`}
+                      className="px-3 py-2 bg-gray-900 hover:bg-[#4F23D6] text-white text-xs font-black uppercase tracking-wider transition-colors"
+                    >
+                      Keywords & Bids
+                    </Link>
+
+                    <button
+                      onClick={() => handleDelete(camp.id, camp.name)}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors"
+                      title="Delete Campaign"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

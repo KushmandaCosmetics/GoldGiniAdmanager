@@ -44,7 +44,7 @@ export default function AnalyticsChart({
           <YAxis stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} />
           <Tooltip 
             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-            labelFormatter={(label: any) => label ? new Date(String(label)).toLocaleDateString() : ''}
+            labelFormatter={(label: any) => label ? new Date(String(label)).toLocaleDateString() : ""}
           />
           <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
           
@@ -56,7 +56,7 @@ export default function AnalyticsChart({
             fill={color1} 
             strokeWidth={3} 
             activeDot={{ r: 6 }} 
-            radius={[4, 4, 0, 0]} 
+            radius={4} 
           />
           
           {dataKey2 && (
@@ -68,7 +68,7 @@ export default function AnalyticsChart({
               fill={color2} 
               strokeWidth={3} 
               activeDot={{ r: 6 }}
-              radius={[4, 4, 0, 0]}
+              radius={4}
             />
           )}
         </ChartComponent>

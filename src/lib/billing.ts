@@ -1,4 +1,5 @@
 import { prisma } from './prisma';
+import { CampaignStatus } from '@prisma/client';
 
 export async function processCpcCharge(campaignId: number, cpcAmount: number) {
   try {
@@ -56,9 +57,9 @@ export async function processCpcCharge(campaignId: number, cpcAmount: number) {
       });
 
       // 5. Update Campaign Spend & Check Budget Exhaustion
-      let newStatus: 'ACTIVE' | 'PAUSED' | 'ENDED' | 'BUDGET_EXHAUSTED' = campaign.status;
+      let newStatus: CampaignStatus = campaign.status as CampaignStatus;
       if (newSpentToday >= Number(campaign.dailyBudget)) {
-        newStatus = 'BUDGET_EXHAUSTED';
+        newStatus = CampaignStatus.BUDGET_EXHAUSTED;
       }
 
       await tx.campaign.update({

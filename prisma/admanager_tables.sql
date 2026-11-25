@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS `wallet_transactions` (
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
     INDEX `wallet_transactions_seller_id_idx`(`seller_id`),
+    UNIQUE INDEX `wallet_transactions_type_reference_id_key`(`type`, `reference_id`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

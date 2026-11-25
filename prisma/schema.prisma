@@ -62,6 +62,8 @@ model WalletTransaction {
   seller Seller @relation(fields: [sellerId], references: [id])
 
   @@index([sellerId])
+  // One wallet entry per payment / charge reference: blocks double-crediting a Razorpay payment.
+  @@unique([type, referenceId], map: "wallet_transactions_type_reference_id_key")
   @@map("wallet_transactions")
 }
 

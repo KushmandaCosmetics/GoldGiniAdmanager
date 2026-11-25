@@ -5,8 +5,10 @@ import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 export async function GET(req: NextRequest) {
   try {
     // In production, this would be protected by an Admin API Key or Admin Session Token
+    // Always required: previously skipped outside production, and passed when the env var was unset.
     const adminKey = req.headers.get('x-admin-key');
-    if (adminKey !== process.env.ADMIN_SECRET_KEY && process.env.NODE_ENV === 'production') {
+    const expectedKey = process.env.ADMIN_SECRET_KEY;
+    if (!expectedKey || adminKey !== expectedKey) {
       return NextResponse.json({ error: 'Unauthorized Admin Access' }, { status: 401 });
     }
 

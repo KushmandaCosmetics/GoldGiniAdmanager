@@ -6,13 +6,11 @@ import { prisma } from '@/lib/prisma';
 export async function GET(req: Request) {
   try {
     // 1. Verify cron secret to prevent unauthorized resets
+    // The Host header is client-controlled, so it can never be used to skip this check.
     const authHeader = req.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      // Allow localhost bypassing for easy local testing
-      const isLocalhost = req.headers.get('host')?.includes('localhost');
-      if (!isLocalhost && process.env.NODE_ENV === 'production') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     console.log('[CRON] Starting midnight daily reset...');

@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { prisma } from './prisma';
 
 export async function processCpcCharge(campaignId: number, cpcAmount: number) {
@@ -49,7 +50,7 @@ export async function processCpcCharge(campaignId: number, cpcAmount: number) {
           type: 'CPC_DEDUCTION',
           amount: -cpcAmount,
           description: `CPC charge for campaign #${campaignId}`,
-          referenceId: `CPC-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          referenceId: `CPC-${randomUUID()}`,
           balanceBefore,
           balanceAfter
         }

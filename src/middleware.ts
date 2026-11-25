@@ -21,8 +21,8 @@ export async function middleware(req: NextRequest) {
         status: 204,
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-session-id, x-seller-id',
         },
       });
     }
@@ -30,8 +30,8 @@ export async function middleware(req: NextRequest) {
     // Handle standard request - proceed and add headers
     const res = NextResponse.next();
     res.headers.set('Access-Control-Allow-Origin', '*');
-    res.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+    res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-session-id, x-seller-id');
     return res;
   }
 

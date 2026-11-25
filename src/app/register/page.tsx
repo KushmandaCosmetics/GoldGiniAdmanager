@@ -36,9 +36,10 @@ export default function RegisterPage() {
         // Registration successful, token is in cookies, redirect to dashboard
         router.push('/dashboard');
       } else {
-        setError(data.error || 'Registration failed');
+        const errorText = data.allErrors ? data.allErrors.join(' • ') : (data.error || 'Registration failed');
+        setError(errorText);
       }
-    } catch (err) {
+    } catch {
       setError('Network error occurred');
     } finally {
       setIsLoading(false);
@@ -102,11 +103,12 @@ export default function RegisterPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Password</label>
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Password (min 6 characters)</label>
               <input
                 name="password"
                 type="password"
                 required
+                minLength={6}
                 className="appearance-none block w-full px-4 py-3 bg-white/5 border border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-[#E1FF00] focus:ring-1 focus:ring-[#E1FF00] transition-colors"
                 placeholder="••••••••"
                 value={formData.password}
